@@ -1,0 +1,1698 @@
+        <!DOCTYPE html>
+        <html lang="zh-CN">
+        <head>
+            <meta charset="UTF-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+            <title>Happy Mother's Day</title>
+            
+            <script src="https://cdn.tailwindcss.com"></script>
+            <script>
+                tailwind.config = {
+                    theme: {
+                        extend: {
+                            colors: {
+                                'cyber-green': '#00ffaa',
+                                'cyber-blue': '#00aaff',
+                                'cyber-pink': '#ff1493',
+                                'cyber-dark': '#010203'
+                            }
+                        }
+                    }
+                }
+            </script>
+            <style>
+                /* 引入唯美的中英文字体：Zhi Mang Xing (行书), Noto Sans, Dancing Script */
+                @import url('https://fonts.googleapis.com/css2?family=Dancing+Script:wght@600;700&family=Orbitron:wght@400;700&family=Noto+Sans+SC:wght@300;500;700&family=Zhi+Mang+Xing&display=swap');
+
+                body, html {
+                    margin: 0;
+                    padding: 0;
+                    width: 100%;
+                    height: 100%;
+                    overflow: hidden;
+                    background: #010203; /* 赛博深色背景 */
+                    font-family: 'Noto Sans SC', sans-serif;
+                    color: white;
+                    touch-action: none;
+                    /* 默认禁用选择，但提供允许选择的类 */
+                    -webkit-user-select: none;
+                    user-select: none;
+                }
+
+                /* 允许用户在输入框完美复制粘贴文字 */
+                .allow-select {
+                    -webkit-user-select: text !important;
+                    user-select: text !important;
+                }
+
+                #canvas-container {
+                    position: absolute;
+                    top: 0;
+                    left: 0;
+                    width: 100%;
+                    height: 100%;
+                    z-index: 1;
+                }
+
+                .glass-panel {
+                    background: rgba(3, 5, 8, 0.7);
+                    backdrop-filter: blur(12px);
+                    border: 1px solid rgba(0, 255, 170, 0.2);
+                    border-radius: 12px;
+                    box-shadow: 0 8px 32px rgba(0, 255, 170, 0.1);
+                }
+
+                .cyber-button {
+                    background: rgba(255, 105, 180, 0.1);
+                    border: 1px solid #ff1493;
+                    color: #ff69b4;
+                    transition: all 0.3s ease;
+                    box-shadow: 0 0 10px rgba(255, 105, 180, 0.15);
+                }
+                .cyber-button:hover {
+                    background: rgba(255, 105, 180, 0.3);
+                    box-shadow: 0 0 20px rgba(255, 105, 180, 0.4);
+                    color: #fff;
+                }
+
+                #loading-screen {
+                    position: absolute;
+                    z-index: 50;
+                    inset: 0;
+                    display: flex;
+                    flex-direction: column;
+                    justify-content: center;
+                    align-items: center;
+                    background: #010203;
+                    transition: opacity 1s ease-out;
+                    overflow-y: auto;
+                    padding: 20px;
+                }
+
+                .loader-ring {
+                    width: 80px;
+                    height: 80px;
+                    border: 3px solid transparent;
+                    border-top-color: #ff69b4;
+                    border-bottom-color: #ff1493;
+                    border-radius: 50%;
+                    animation: spin 1.5s linear infinite;
+                }
+
+                @keyframes spin { 100% { transform: rotate(360deg); } }
+
+                #pip-container {
+                    width: 120px;
+                    height: 90px;
+                    position: absolute;
+                    bottom: 20px;
+                    right: 20px;
+                    z-index: 20;
+                    border-radius: 8px;
+                    border: 2px solid rgba(255, 105, 180, 0.4);
+                    overflow: hidden;
+                    box-shadow: 0 0 15px rgba(255, 105, 180, 0.2);
+                }
+                
+                #webcam-video, #output-canvas {
+                    position: absolute;
+                    top: 0;
+                    left: 0;
+                    width: 100%;
+                    height: 100%;
+                    object-fit: cover;
+                    transform: scaleX(-1);
+                }
+
+                #crosshair {
+                    position: absolute;
+                    top: 50%;
+                    left: 50%;
+                    transform: translate(-50%, -50%);
+                    width: 16px;
+                    height: 16px;
+                    border: 2px solid rgba(255, 255, 255, 0.3);
+                    border-radius: 50%;
+                    z-index: 10;
+                    pointer-events: none;
+                    transition: all 0.2s ease;
+                }
+                #crosshair.active {
+                    border-color: #ff1493;
+                    transform: translate(-50%, -50%) scale(1.5);
+                    background: rgba(255, 105, 180, 0.2);
+                }
+
+                #gesture-state {
+                    position: absolute;
+                    bottom: 20px;
+                    left: 20px;
+                    z-index: 20;
+                    pointer-events: none;
+                    transition: opacity 0.5s ease;
+                }
+
+                #top-controls {
+                    position: absolute;
+                    top: 20px;
+                    right: 20px;
+                    z-index: 30;
+                    display: flex;
+                    flex-wrap: wrap;
+                    justify-content: flex-end;
+                    gap: 12px;
+                    opacity: 0;
+                    pointer-events: auto;
+                    transition: opacity 0.5s ease;
+                    max-width: 85%;
+                }
+                .control-btn {
+                    background: rgba(3, 5, 8, 0.7);
+                    backdrop-filter: blur(10px);
+                    border: 1px solid rgba(255, 105, 180, 0.3);
+                    border-radius: 50px;
+                    padding: 8px 14px;
+                    color: #ff69b4;
+                    font-size: 13px;
+                    cursor: pointer;
+                    transition: all 0.3s ease;
+                    display: flex;
+                    align-items: center;
+                    gap: 6px;
+                    font-family: 'Noto Sans SC', sans-serif;
+                    font-weight: bold;
+                    -webkit-tap-highlight-color: transparent;
+                }
+                .control-btn:hover, .control-btn:active {
+                    background: rgba(255, 105, 180, 0.2);
+                    color: white;
+                    box-shadow: 0 4px 12px rgba(255, 105, 180, 0.3);
+                    transform: translateY(-2px);
+                }
+
+                /* 侧边悬浮贺卡触发按钮 */
+                #gift-btn {
+                    position: absolute;
+                    right: 20px;
+                    top: 50%;
+                    transform: translateY(-50%);
+                    z-index: 40;
+                    cursor: pointer;
+                    display: flex;
+                    flex-direction: column;
+                    align-items: center;
+                    transition: all 0.3s ease;
+                    opacity: 0;
+                    pointer-events: none;
+                }
+                #gift-btn:hover {
+                    transform: translateY(-50%) scale(1.1);
+                }
+                .gift-icon {
+                    font-size: 44px;
+                    filter: drop-shadow(0 4px 6px rgba(255, 105, 180, 0.5));
+                    animation: bounce 2s infinite ease-in-out;
+                }
+                @keyframes bounce {
+                    0%, 100% { transform: translateY(0); }
+                    50% { transform: translateY(-10px); }
+                }
+
+                /* -------------------------------------
+                小贺卡弹窗 (完美复刻粉色水彩书法风) 
+                ------------------------------------- */
+                #gift-modal {
+                    position: fixed;
+                    inset: 0;
+                    z-index: 60;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    opacity: 0;
+                    pointer-events: none;
+                    transition: opacity 0.4s ease;
+                }
+                #gift-modal.show {
+                    opacity: 1;
+                    pointer-events: auto;
+                }
+                #gift-modal-bg {
+                    position: absolute;
+                    inset: 0;
+                    background: rgba(0, 0, 0, 0.85);
+                    backdrop-filter: blur(8px);
+                }
+                #gift-modal-content {
+                    position: relative;
+                    width: 90%;
+                    max-width: 380px;
+                    background-color: #fff;
+                    background-image: url('https://images.unsplash.com/photo-1558244402-286dd748c593?ixlib=rb-1.2.1&auto=format&fit=crop&w=600&q=80'); /* 粉色水彩背景 */
+                    background-size: cover;
+                    background-position: center;
+                    border-radius: 12px;
+                    overflow: hidden;
+                    box-shadow: 0 20px 50px rgba(255, 105, 180, 0.3);
+                    transform: scale(0.9);
+                    transition: transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+                    margin: auto;
+                }
+                #gift-modal.show #gift-modal-content {
+                    transform: scale(1);
+                }
+                .card-inner-overlay {
+                    background: linear-gradient(135deg, rgba(255,255,255,0.7) 0%, rgba(255,255,255,0.95) 100%);
+                    padding: 40px 24px;
+                    display: flex;
+                    flex-direction: column;
+                    align-items: center;
+                    height: 100%;
+                }
+                .calligraphy-text {
+                    font-family: 'Zhi Mang Xing', cursive;
+                    font-size: 52px;
+                    color: #1a1a1a;
+                    line-height: 1.1;
+                    margin-bottom: 5px;
+                    text-shadow: 1px 1px 2px rgba(0,0,0,0.1);
+                }
+                .english-script {
+                    font-family: 'Dancing Script', cursive;
+                    font-size: 24px;
+                    color: #4a4a4a;
+                    margin-bottom: 30px;
+                }
+                .poem-text {
+                    font-family: 'Noto Sans SC', sans-serif;
+                    color: #555;
+                    font-size: 14px;
+                    line-height: 2;
+                    text-align: right;
+                    width: 100%;
+                    padding-right: 10px;
+                    margin-bottom: 40px;
+                    font-weight: 500;
+                    letter-spacing: 2px;
+                }
+
+                /* -------------------------------------
+                全屏大贺卡惊喜弹窗 (完美融合图文)
+                ------------------------------------- */
+                #big-card-modal {
+                    position: fixed;
+                    inset: 0;
+                    z-index: 70;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    opacity: 0;
+                    pointer-events: none;
+                    transition: opacity 0.5s ease;
+                    background: rgba(0,0,0,0.9);
+                    backdrop-filter: blur(15px);
+                }
+                #big-card-modal.show {
+                    opacity: 1;
+                    pointer-events: auto;
+                }
+                #big-card-content {
+                    position: relative;
+                    width: 90%;
+                    max-width: 600px;
+                    height: 75vh;
+                    background: #111; /* 背景打底 */
+                    border-radius: 20px;
+                    overflow: hidden;
+                    display: flex;
+                    flex-direction: column;
+                    box-shadow: 0 0 40px rgba(255, 105, 180, 0.4);
+                    transform: translateY(30px);
+                    transition: transform 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+                }
+                #big-card-modal.show #big-card-content {
+                    transform: translateY(0);
+                }
+                
+                /* 贺卡全屏透明度背景 */
+                #big-card-img-preview {
+                    position: absolute;
+                    inset: 0;
+                    width: 100%;
+                    height: 100%;
+                    object-fit: cover;
+                    opacity: 0.45; /* 降低透明度让文字突出 */
+                    z-index: 0;
+                }
+                
+                /* 贺卡正文悬浮层 - 修改为严格左对齐并保留格式 */
+                #big-card-text-display {
+                    position: relative;
+                    z-index: 10;
+                    flex: 1;
+                    padding: 40px 30px;
+                    font-size: 20px;
+                    color: #ffffff;
+                    line-height: 2.0;
+                    text-align: left; /* 严格按照用户编辑排版 */
+                    font-family: 'Noto Sans SC', sans-serif;
+                    text-shadow: 0 4px 12px rgba(0,0,0,0.9), 0 1px 3px rgba(0,0,0,0.8); /* 高强度双层阴影确保绝对清晰 */
+                    overflow-y: auto;
+                    display: block; /* 改为 block 保留换行格式 */
+                    white-space: pre-wrap; /* 原样保留所有空格和回车 */
+                    word-break: break-word;
+                }
+
+                #close-big-card {
+                    position: relative;
+                    z-index: 10;
+                    margin-top: auto;
+                }
+
+                #ai-caption-box {
+                    position: absolute;
+                    bottom: 100px;
+                    left: 50%;
+                    transform: translateX(-50%);
+                    width: 90%;
+                    max-width: 600px;
+                    z-index: 30;
+                    text-align: center;
+                    pointer-events: auto;
+                    transition: opacity 0.5s ease, transform 0.5s ease;
+                    box-shadow: 0 0 20px rgba(255, 105, 180, 0.2);
+                }
+                #ai-caption-box.hidden-box {
+                    opacity: 0;
+                    pointer-events: none;
+                    transform: translate(-50%, 20px);
+                }
+            </style>
+        </head>
+        <body>
+
+            <div id="crosshair" class="hidden md:block"></div>
+
+            <div id="gift-btn">
+                <div class="gift-icon">🎁</div>
+                <div class="bg-gradient-to-r from-pink-500 to-red-400 text-white text-xs px-3 py-1.5 rounded-full mt-2 shadow-md font-bold tracking-widest whitespace-nowrap">
+                    母亲节快乐
+                </div>
+            </div>
+
+            <div id="gift-modal">
+                <div id="gift-modal-bg"></div>
+                <div id="gift-modal-content">
+                    <button id="close-gift" class="absolute top-3 right-4 text-gray-500 hover:text-pink-500 text-3xl z-20 font-bold drop-shadow-md">&times;</button>
+                    <div class="card-inner-overlay">
+                        <div class="text-center w-full mt-4">
+                            <h2 class="calligraphy-text">母亲节快乐</h2>
+                            <p class="english-script">- mother's day -</p>
+                        </div>
+                        <div class="poem-text mt-8">
+                            时光慢些走<br>让我多陪你一会<br>爱你不止今天
+                        </div>
+                        <button id="btn-surprise" class="w-[85%] py-3.5 bg-[#1a1a1a] text-white rounded-full font-bold shadow-lg hover:bg-[#333] transition transform hover:-translate-y-1 tracking-widest mt-auto mb-2 text-sm">
+                            开启惊喜 ✨
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <div id="big-card-modal">
+                <div id="big-card-content">
+                    <img id="big-card-img-preview" src="https://images.unsplash.com/photo-1490750967868-88aa4486c946?auto=format&fit=crop&w=800&q=80" alt="Card Image">
+                    <div id="big-card-text-display">亲爱的妈妈，节日快乐！感谢您无私的爱与包容，愿您永远健康美丽。</div>
+                    <button id="close-big-card" class="w-full py-4 bg-gradient-to-r from-pink-500 to-red-400 text-white font-bold text-lg tracking-widest hover:opacity-90 transition">
+                        收下祝福并欣赏烟花 🎇
+                    </button>
+                </div>
+            </div>
+
+            <div id="top-controls">
+                <button id="btn-edit-card" class="control-btn border-pink-400 text-pink-400 hover:bg-pink-400/20">📝 编辑贺卡</button>
+                <label class="control-btn" title="追加上传新照片">
+                    ➕ 追加照片
+                    <input type="file" id="btn-add-photos" accept="image/*" multiple class="hidden">
+                </label>
+                <label class="control-btn" title="上传自定义音乐">
+                    🎵 换音乐
+                    <input type="file" id="btn-change-music" accept="audio/*" class="hidden">
+                </label>
+                <button id="btn-music" class="control-btn">🔊 音乐: 关</button>
+                <button id="btn-replay" class="control-btn border-cyber-blue text-cyber-blue">🔄 重新播放</button>
+                <button id="btn-clear-cache" class="control-btn border-red-400 text-red-400 hover:bg-red-400/20">🗑️ 清空所有</button>
+            </div>
+
+            <div id="edit-card-modal" class="fixed inset-0 z-[80] hidden flex items-center justify-center opacity-0 pointer-events-none transition-opacity duration-300">
+                <div class="absolute inset-0 bg-black/80 backdrop-blur-sm" id="edit-card-bg"></div>
+                <div class="relative w-[90%] max-w-md bg-[#111] border border-pink-500/50 rounded-2xl p-6 shadow-[0_0_30px_rgba(255,105,180,0.3)] transform scale-95 transition-transform duration-300" id="edit-card-content">
+                    <h3 class="text-pink-400 text-lg font-bold mb-4 border-b border-pink-500/30 pb-2">重新编辑大贺卡</h3>
+                    <label class="w-full block bg-black/60 border border-dashed border-pink-500/50 rounded-lg p-4 text-center cursor-pointer hover:bg-black/80 transition mb-4">
+                        <span class="text-pink-300 text-sm font-medium" id="edit-card-img-status">点击更换大贺卡背景图</span>
+                        <input type="file" id="edit-card-img" accept="image/*" class="hidden">
+                    </label>
+                    <textarea id="edit-card-text" rows="5" class="allow-select w-full bg-black/60 border border-pink-500/30 rounded-lg px-4 py-3 text-white text-base focus:outline-none focus:border-pink-500 transition resize-none placeholder-gray-500" placeholder="写下你想对她说的话... 支持长按复制粘贴排版"></textarea>
+                    <div class="flex justify-end gap-3 mt-5">
+                        <button id="btn-close-edit" class="px-5 py-2 rounded-lg text-sm text-gray-300 hover:text-white transition">取消</button>
+                        <button id="btn-save-edit" class="px-6 py-2 rounded-lg text-sm font-bold text-white bg-gradient-to-r from-pink-500 to-red-400 hover:opacity-90 transition shadow-[0_0_10px_rgba(255,105,180,0.5)]">保存并预览</button>
+                    </div>
+                </div>
+            </div>
+
+            <div id="ai-caption-box" class="glass-panel px-6 py-4 hidden-box flex items-center justify-center gap-3">
+                <p id="ai-caption-text" class="text-white text-sm md:text-base font-bold tracking-wide">✨ AI 正在凝视回忆...</p>
+            </div>
+
+            <div id="loading-screen">
+                <div class="loader-ring mb-8" id="loader-anim"></div>
+                <h1 class="text-3xl md:text-5xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-cyber-green to-cyber-blue tracking-widest mb-2 font-[Orbitron]">
+                    PARTICLE CAKE
+                </h1>
+                <p id="loading-text" class="text-gray-400 text-sm mb-8 tracking-widest font-bold">正在加载粒子引擎与 AI 模型...</p>
+                
+                <div id="action-container" class="hidden flex flex-col items-center gap-4 w-full max-w-md px-4 pb-10">
+                    <div class="w-full bg-white/5 border border-pink-500/30 rounded-xl p-4 shadow-inner">
+                        <h3 class="text-pink-400 text-sm font-bold mb-3 border-b border-pink-500/20 pb-2">📂 基础媒体设置</h3>
+                        <div class="flex gap-4 w-full">
+                            <label class="cyber-button w-1/2 py-2 rounded-xl cursor-pointer text-center font-bold flex flex-col justify-center items-center gap-1">
+                                <span class="text-xl">📸</span>
+                                <span id="upload-text" class="text-[10px]">[ 照片缓存: 0 张 ]</span>
+                                <input type="file" id="upload-photos-start" accept="image/*" multiple class="hidden">
+                            </label>
+
+                            <label class="cyber-button w-1/2 py-2 rounded-xl cursor-pointer text-center font-bold flex flex-col justify-center items-center gap-1 border-cyber-blue text-cyber-blue shadow-[0_0_10px_rgba(0,170,255,0.2)]">
+                                <span class="text-xl">🎵</span>
+                                <span id="music-text" class="text-[10px]">[ 默认纯音乐 ]</span>
+                                <input type="file" id="upload-music-start" accept="audio/*" class="hidden">
+                            </label>
+                        </div>
+                    </div>
+
+                    <div class="w-full bg-white/5 border border-pink-500/30 rounded-xl p-4 shadow-inner mt-2">
+                        <h3 class="text-pink-400 text-sm font-bold mb-3 border-b border-pink-500/20 pb-2">💌 专属大贺卡编辑 (惊喜)</h3>
+                        
+                        <label class="w-full block bg-black/40 border border-dashed border-pink-500/50 rounded-lg p-3 text-center cursor-pointer hover:bg-black/60 transition mb-3">
+                            <span class="text-pink-300 text-sm font-medium" id="card-img-status">点击上传大贺卡背景 (选填)</span>
+                            <input type="file" id="upload-card-img" accept="image/*" class="hidden">
+                        </label>
+
+                        <textarea id="card-text-input" rows="3" class="allow-select w-full bg-black/40 border border-pink-500/30 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-pink-500 transition resize-none placeholder-gray-500" placeholder="写下你想对她说的话... 支持长按复制粘贴排版 (选填)"></textarea>
+                    </div>
+
+                    <button id="btn-start" class="cyber-button w-full py-4 rounded-full font-bold text-lg text-white bg-white/10 hover:bg-white/20 mt-2 transition transform hover:scale-[1.02]">
+                        ▶ 开启礼物视界
+                    </button>
+                    <p class="text-[11px] text-gray-500 text-center mt-2 font-bold">提示：支持手机双击切换、对准手机麦克风孔吹气。<br>本地照片与音乐安全持久存储。</p>
+                </div>
+            </div>
+
+            <div id="canvas-container"></div>
+
+            <div id="gesture-state" class="glass-panel px-4 py-2 hidden opacity-0">
+                <div class="text-sm text-cyber-green font-bold" id="mode-text">等待吹气...</div>
+                <div class="text-xs text-gray-400 mt-1" id="hint-text">🌬️ 吹麦克风、或双击屏幕开启</div>
+            </div>
+
+            <div id="pip-container" class="hidden opacity-0" style="transition: opacity 0.5s ease;">
+                <video id="webcam-video" autoplay playsinline muted></video>
+                <canvas id="output-canvas"></canvas>
+            </div>
+
+            <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.49/Tone.js"></script>
+
+            <script type="importmap">
+                {
+                    "imports": {
+                        "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+                        "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/",
+                        "@mediapipe/tasks-vision": "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.3/+esm"
+                    }
+                }
+            </script>
+
+            <script type="module">
+                import * as THREE from 'three';
+                import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+                import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
+                import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
+                import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
+                import { HandLandmarker, FaceLandmarker, FilesetResolver } from '@mediapipe/tasks-vision';
+                import * as TWEEN from 'https://cdnjs.cloudflare.com/ajax/libs/tween.js/21.0.0/tween.esm.js';
+
+                const GeminiAPI = {
+                    key: "", 
+                    
+                    callVision: async (prompt, base64Image) => {
+                        const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${GeminiAPI.key}`;
+                        let parts = [{ text: prompt }];
+                        if (base64Image) {
+                            try {
+                                const mimeType = base64Image.match(/data:(.*?);base64/)[1];
+                                const data = base64Image.split(',')[1];
+                                parts.push({ inlineData: { mimeType, data } });
+                            } catch(e) {}
+                        }
+                        const payload = { contents: [{ role: "user", parts }] };
+                        
+                        for (let i = 0; i <= 2; i++) {
+                            try {
+                                const response = await fetch(endpoint, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+                                if (!response.ok) throw new Error(`HTTP ${response.status}`);
+                                const result = await response.json();
+                                return result.candidates?.[0]?.content?.parts?.[0]?.text || "";
+                            } catch (error) {
+                                if (i === 2) return null;
+                                await new Promise(res => setTimeout(res, 1000 * (i+1)));
+                            }
+                        }
+                    }
+                };
+
+                const DB = {
+                    db: null,
+                    init: () => new Promise((resolve, reject) => {
+                        const req = indexedDB.open("MotherDayDB", 3);
+                        req.onupgradeneeded = e => {
+                            const db = e.target.result;
+                            if(!db.objectStoreNames.contains('photos')) db.createObjectStore('photos', { keyPath: 'id', autoIncrement: true });
+                            if(!db.objectStoreNames.contains('settings')) db.createObjectStore('settings', { keyPath: 'id' });
+                        };
+                        req.onsuccess = e => { DB.db = e.target.result; resolve(); };
+                        req.onerror = e => reject(e);
+                    }),
+                    addPhoto: (dataUrl) => new Promise(resolve => {
+                        const tx = DB.db.transaction('photos', 'readwrite'); tx.objectStore('photos').add({ data: dataUrl }); tx.oncomplete = resolve;
+                    }),
+                    getPhotos: () => new Promise(resolve => {
+                        const tx = DB.db.transaction('photos', 'readonly'); const req = tx.objectStore('photos').getAll(); req.onsuccess = e => resolve(e.target.result.map(r => r.data));
+                    }),
+                    saveSetting: (id, data) => new Promise(resolve => {
+                        const tx = DB.db.transaction('settings', 'readwrite'); tx.objectStore('settings').put({ id, data }); tx.oncomplete = resolve;
+                    }),
+                    getSetting: (id) => new Promise(resolve => {
+                        const tx = DB.db.transaction('settings', 'readonly'); const req = tx.objectStore('settings').get(id);
+                        req.onsuccess = e => resolve(e.target.result ? e.target.result.data : null); req.onerror = () => resolve(null);
+                    }),
+                    clearAll: () => new Promise(resolve => {
+                        const tx = DB.db.transaction(['photos', 'settings'], 'readwrite'); tx.objectStore('photos').clear(); tx.objectStore('settings').clear(); tx.oncomplete = resolve;
+                    })
+                };
+
+                const compressImage = (file) => new Promise(resolve => {
+                    const reader = new FileReader();
+                    reader.onload = e => {
+                        const img = new Image();
+                        img.onload = () => {
+                            const canvas = document.createElement('canvas');
+                            const MAX_SIZE = 1200; 
+                            let w = img.width; let h = img.height;
+                            if(w > h && w > MAX_SIZE) { h *= MAX_SIZE/w; w = MAX_SIZE; } else if(h > MAX_SIZE) { w *= MAX_SIZE/h; h = MAX_SIZE; }
+                            canvas.width = w; canvas.height = h;
+                            const ctx = canvas.getContext('2d'); ctx.drawImage(img, 0, 0, w, h);
+                            resolve(canvas.toDataURL('image/jpeg', 0.9)); 
+                        };
+                        img.src = e.target.result;
+                    };
+                    reader.readAsDataURL(file);
+                });
+
+                const AudioSys = {
+                    initialized: false,
+                    isPlaying: false,
+                    synth: null,
+                    customAudio: new Audio(),
+                    useCustom: false,
+                    
+                    init: async () => {
+                        await Tone.start();
+                        const reverb = new Tone.Reverb(4).toDestination();
+                        AudioSys.synth = new Tone.PolySynth(Tone.Synth, {
+                            oscillator: { type: "sine" },
+                            envelope: { attack: 1.0, decay: 0.5, sustain: 0.5, release: 3 }
+                        }).connect(reverb);
+                        AudioSys.synth.volume.value = -12;
+                        
+                        const chords = [["C4", "E4", "G4"], ["A3", "C4", "E4"], ["F3", "A3", "C4"], ["G3", "B3", "D4"]];
+                        let step = 0;
+                        Tone.Transport.scheduleRepeat(time => {
+                            AudioSys.synth.triggerAttackRelease(chords[step % chords.length], "2n", time);
+                            step++;
+                        }, "1m");
+                        
+                        AudioSys.customAudio.loop = true;
+                        AudioSys.initialized = true;
+                    },
+                    playFireworkSound: () => {
+                        if(Tone.context.state !== 'running') Tone.start();
+                        try {
+                            const noise = new Tone.NoiseSynth({ noise: { type: "white" }, envelope: { attack: 0.005, decay: 1.0, sustain: 0, release: 0.1 } }).toDestination();
+                            noise.volume.value = -8; noise.triggerAttackRelease("4n");
+                            const osc = new Tone.Synth({ oscillator: { type: "sine" }, envelope: { attack: 0.01, decay: 0.6, sustain: 0, release: 0.1 } }).toDestination();
+                            osc.volume.value = -18; osc.triggerAttackRelease("C6", "8n"); osc.frequency.rampTo("C4", 0.6);
+                        } catch(e) {}
+                    },
+                    setCustomMusic: (source) => {
+                        AudioSys.customAudio.src = source;
+                        AudioSys.useCustom = true;
+                        document.getElementById('music-text').innerText = "[ 自定义音乐已载入 ]";
+                    },
+                    toggle: async () => {
+                        if (!AudioSys.initialized) await AudioSys.init();
+                        AudioSys.isPlaying = !AudioSys.isPlaying;
+                        
+                        if (AudioSys.useCustom) {
+                            if (AudioSys.isPlaying) AudioSys.customAudio.play();
+                            else AudioSys.customAudio.pause();
+                        } else {
+                            if (AudioSys.isPlaying) Tone.Transport.start();
+                            else Tone.Transport.stop();
+                        }
+                    }
+                };
+
+                const State = {
+                    phase: 'A', 
+                    mode: 'tree', 
+                    targetFocusIndex: -1,
+                    hoverIndex: -1,
+                    gesturesEnabled: false,
+                    isMorphing: false,
+                    isCandleLit: true,
+                    sequenceId: 0,
+                    activeZoomToken: 0,
+                    customPhrases: ["妈妈", "愿岁月温柔", "健康常伴", "我爱你", "母亲节快乐"],
+                    cardImgData: null,
+                    cardTextData: "亲爱的妈妈，节日快乐！感谢您无私的爱与包容，愿您永远健康美丽。"
+                };
+
+                const DOM = {
+                    crosshair: document.getElementById('crosshair'),
+                    modeText: document.getElementById('mode-text'),
+                    hintText: document.getElementById('hint-text'),
+                    pipContainer: document.getElementById('pip-container'),
+                    gestureState: document.getElementById('gesture-state'),
+                    topControls: document.getElementById('top-controls'),
+                    btnMusic: document.getElementById('btn-music'),
+                    btnReplay: document.getElementById('btn-replay'),
+                    btnClear: document.getElementById('btn-clear-cache'),
+                    uploadText: document.getElementById('upload-text'),
+                    aiCaptionBox: document.getElementById('ai-caption-box'),
+                    aiCaptionText: document.getElementById('ai-caption-text'),
+                    giftBtn: document.getElementById('gift-btn'),
+                    giftModal: document.getElementById('gift-modal'),
+                    closeGift: document.getElementById('close-gift'),
+                    btnSurprise: document.getElementById('btn-surprise'),
+                    bigCardModal: document.getElementById('big-card-modal'),
+                    bigCardImgPreview: document.getElementById('big-card-img-preview'),
+                    bigCardTextDisplay: document.getElementById('big-card-text-display'),
+                    closeBigCard: document.getElementById('close-big-card'),
+                    cardImgStatus: document.getElementById('card-img-status'),
+                    btnEditCard: document.getElementById('btn-edit-card'),
+                    editCardModal: document.getElementById('edit-card-modal'),
+                    editCardBg: document.getElementById('edit-card-bg'),
+                    editCardContent: document.getElementById('edit-card-content'),
+                    editCardImg: document.getElementById('edit-card-img'),
+                    editCardText: document.getElementById('edit-card-text'),
+                    btnCloseEdit: document.getElementById('btn-close-edit'),
+                    btnSaveEdit: document.getElementById('btn-save-edit'),
+                    editCardImgStatus: document.getElementById('edit-card-img-status')
+                };
+
+                const unlockUI = (msg) => {
+                    const loadingText = document.getElementById('loading-text');
+                    if (loadingText) loadingText.innerText = msg;
+                    const loaderAnim = document.getElementById('loader-anim');
+                    if (loaderAnim) loaderAnim.style.display = 'none';
+                    const actionContainer = document.getElementById('action-container');
+                    if (actionContainer) actionContainer.classList.remove('hidden');
+                };
+
+                const container = document.getElementById('canvas-container');
+                const scene = new THREE.Scene();
+                scene.background = new THREE.Color(0x010203); 
+                scene.fog = new THREE.FogExp2(0x010203, 0.008);
+                
+                const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 1000);
+                camera.position.set(0, 10, 50);
+
+                const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+                renderer.setPixelRatio(window.devicePixelRatio);
+                renderer.setSize(window.innerWidth, window.innerHeight);
+                renderer.toneMapping = THREE.ACESFilmicToneMapping;
+                renderer.toneMappingExposure = 1.0;
+                container.appendChild(renderer.domElement);
+
+                const controls = new OrbitControls(camera, renderer.domElement);
+                controls.enableDamping = true;
+                controls.dampingFactor = 0.05;
+                controls.autoRotate = false;
+                controls.autoRotateSpeed = 1.0;
+                controls.enablePan = false;
+
+                const renderScene = new RenderPass(scene, camera);
+                const bloomPass = new UnrealBloomPass(new THREE.Vector2(window.innerWidth, window.innerHeight), 1.2, 0.4, 1.0); 
+                const composer = new EffectComposer(renderer);
+                composer.addPass(renderScene);
+                composer.addPass(bloomPass);
+
+                scene.add(new THREE.AmbientLight(0xffffff, 0.5));
+
+                const Fireworks = {
+                    systems: [],
+                    colors: [0xff1493, 0x00ffaa, 0x00aaff, 0xffff00, 0xff00ff, 0x00ffff, 0xffffff, 0xffa500], 
+                    fire: (position) => {
+                        AudioSys.playFireworkSound(); 
+                        const geo = new THREE.BufferGeometry();
+                        const count = 1200; 
+                        const pos = new Float32Array(count * 3);
+                        const vel = [];
+                        for(let i=0; i<count; i++) {
+                            pos[i*3] = position.x; pos[i*3+1] = position.y; pos[i*3+2] = position.z;
+                            const theta = Math.random() * Math.PI * 2;
+                            const phi = Math.acos(2 * Math.random() - 1);
+                            const speed = 0.5 + Math.random() * 3.0;
+                            vel.push({ x: Math.sin(phi)*Math.cos(theta)*speed, y: Math.sin(phi)*Math.sin(theta)*speed, z: Math.cos(phi)*speed });
+                        }
+                        geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+                        
+                        const baseColor = new THREE.Color(Fireworks.colors[Math.floor(Math.random() * Fireworks.colors.length)]);
+                        baseColor.multiplyScalar(3.0); 
+
+                        const mat = new THREE.PointsMaterial({ size: 0.35, color: baseColor, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false });
+                        const fw = new THREE.Points(geo, mat);
+                        scene.add(fw);
+                        Fireworks.systems.push({mesh: fw, vel: vel, life: 3.5});
+                    },
+                    update: () => {
+                        for(let i = Fireworks.systems.length - 1; i >= 0; i--) {
+                            const fw = Fireworks.systems[i];
+                            fw.life -= 0.006; 
+                            if(fw.life <= 0) {
+                                scene.remove(fw.mesh); fw.mesh.geometry.dispose(); fw.mesh.material.dispose();
+                                Fireworks.systems.splice(i, 1);
+                                continue;
+                            }
+                            const positions = fw.mesh.geometry.attributes.position.array;
+                            for(let j=0; j<fw.vel.length; j++) {
+                                positions[j*3] += fw.vel[j].x; positions[j*3+1] += fw.vel[j].y; positions[j*3+2] += fw.vel[j].z;
+                                fw.vel[j].y -= 0.003; 
+                            }
+                            fw.mesh.geometry.attributes.position.needsUpdate = true;
+                            fw.mesh.material.opacity = fw.life * (Math.random() > 0.3 ? 1 : 0.5);
+                        }
+                    }
+                };
+
+                const ParticleSystem = {
+                    count: 15000, 
+                    pointsMesh: null,
+                    candleMesh: null,
+                    flameMesh: null,
+                    flameLight: null,
+                    textMesh: null,
+                    photos: [],
+                    positions: { tree: new Float32Array(15000 * 3), scatter: new Float32Array(15000 * 3), current: new Float32Array(15000 * 3), start: new Float32Array(15000 * 3) },
+                    morphParams: { progress: 1 },
+                    morphTween: null,
+
+                    init: () => {
+                        const pCanvas = document.createElement('canvas');
+                        pCanvas.width = 32; pCanvas.height = 32;
+                        const pCtx = pCanvas.getContext('2d');
+                        const pGrad = pCtx.createRadialGradient(16,16,0, 16,16,16);
+                        pGrad.addColorStop(0, 'rgba(255,255,255,1)'); pGrad.addColorStop(0.4, 'rgba(255,105,180,0.8)'); pGrad.addColorStop(1, 'rgba(255,105,180,0)');
+                        pCtx.fillStyle = pGrad; pCtx.fillRect(0,0,32,32);
+                        const pTex = new THREE.CanvasTexture(pCanvas);
+
+                        const geometry = new THREE.BufferGeometry();
+                        const colors = new Float32Array(ParticleSystem.count * 3);
+
+                        const tiers = [
+                            { r: 14, hBase: -8, hThick: 5 }, 
+                            { r: 10, hBase: -3, hThick: 4 }, 
+                            { r: 6,  hBase: 1,  hThick: 3 }  
+                        ];
+
+                        for(let i=0; i<ParticleSystem.count; i++) {
+                            const rand = Math.random();
+                            let tIdx = 0;
+                            if (rand > 0.5 && rand <= 0.8) tIdx = 1; 
+                            else if (rand > 0.8) tIdx = 2;
+                            const tier = tiers[tIdx];
+
+                            const radius = tier.r * Math.sqrt(Math.random());
+                            const theta = Math.random() * 2 * Math.PI;
+                            const y = tier.hBase + Math.random() * tier.hThick;
+
+                            ParticleSystem.positions.tree[i*3] = radius * Math.cos(theta);
+                            ParticleSystem.positions.tree[i*3+1] = y;
+                            ParticleSystem.positions.tree[i*3+2] = radius * Math.sin(theta);
+
+                            const sRadius = 40 * Math.cbrt(Math.random());
+                            const sTheta = Math.random() * 2 * Math.PI;
+                            const sPhi = Math.acos(2 * Math.random() - 1);
+                            
+                            ParticleSystem.positions.scatter[i*3] = sRadius * Math.sin(sPhi) * Math.cos(sTheta);
+                            ParticleSystem.positions.scatter[i*3+1] = sRadius * Math.sin(sPhi) * Math.sin(sTheta);
+                            ParticleSystem.positions.scatter[i*3+2] = sRadius * Math.cos(sPhi);
+
+                            ParticleSystem.positions.current[i*3] = (Math.random() - 0.5) * 300;
+                            ParticleSystem.positions.current[i*3+1] = (Math.random() - 0.5) * 300;
+                            ParticleSystem.positions.current[i*3+2] = (Math.random() - 0.5) * 300;
+
+                            const col = new THREE.Color();
+                            if (tIdx === 2) {
+                                const colorRand = Math.random();
+                                if(colorRand < 0.3) col.setHex(0xffffff); 
+                                else if(colorRand < 0.6) col.setHex(0xe6e6fa); 
+                                else col.setHex(0xdda0dd); 
+                            } else {
+                                const colorRand = Math.random();
+                                if(colorRand < 0.3) col.setHex(0xffffff); 
+                                else if(colorRand < 0.6) col.setHex(0xffb6c1); 
+                                else col.setHex(0xff69b4); 
+                            }
+                            col.multiplyScalar(1.3); 
+
+                            colors[i*3] = col.r; colors[i*3+1] = col.g; colors[i*3+2] = col.b;
+                        }
+
+                        geometry.setAttribute('position', new THREE.BufferAttribute(ParticleSystem.positions.current, 3));
+                        geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+                        ParticleSystem.pointsMesh = new THREE.Points(geometry, new THREE.PointsMaterial({ size: 0.4, map: pTex, vertexColors: true, transparent: true, opacity: 0.9, blending: THREE.AdditiveBlending, depthWrite: false }));
+                        scene.add(ParticleSystem.pointsMesh);
+
+                        ["5", "4", "3", "2", "1"].forEach(txt => ParticleSystem.createTextTarget(txt));
+                        State.customPhrases.forEach(txt => ParticleSystem.createTextTarget(txt));
+
+                        ParticleSystem.candleMesh = new THREE.Mesh(
+                            new THREE.CylinderGeometry(0.25, 0.25, 3.5, 16), 
+                            new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, blending: THREE.AdditiveBlending })
+                        );
+                        ParticleSystem.candleMesh.position.set(0, 5.75, 0); 
+                        ParticleSystem.candleMesh.scale.set(0,0,0);
+                        scene.add(ParticleSystem.candleMesh);
+
+                        ParticleSystem.flameMesh = new THREE.Mesh(new THREE.ConeGeometry(0.4, 1.4, 16), new THREE.MeshBasicMaterial({ color: new THREE.Color(0xff4500).multiplyScalar(2.0), transparent: true, opacity: 0.9, blending: THREE.AdditiveBlending }));
+                        ParticleSystem.flameMesh.position.set(0, 1.8, 0); 
+                        ParticleSystem.candleMesh.add(ParticleSystem.flameMesh);
+
+                        ParticleSystem.flameLight = new THREE.PointLight(0xffaa00, 0, 25);
+                        ParticleSystem.flameLight.position.set(0, 1.8, 0); 
+                        ParticleSystem.candleMesh.add(ParticleSystem.flameLight);
+
+                        const textCanvas2 = document.createElement('canvas'); textCanvas2.width = 1024; textCanvas2.height = 256;
+                        const textCtx2 = textCanvas2.getContext('2d');
+                        textCtx2.fillStyle = '#ffffff'; textCtx2.font = 'bold 90px "Orbitron", Arial'; textCtx2.textAlign = 'center'; textCtx2.textBaseline = 'middle';
+                        textCtx2.shadowBlur = 0; 
+                        textCtx2.fillText("Happy Mother's Day", 512, 100);
+                        textCtx2.font = 'bold 30px "Orbitron", Arial'; textCtx2.fillText("BEST WISHES FOR YOU", 512, 160);
+                        
+                        ParticleSystem.textMesh = new THREE.Mesh(new THREE.PlaneGeometry(24, 6), new THREE.MeshBasicMaterial({ map: new THREE.CanvasTexture(textCanvas2), color: 0xffffff, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, toneMapped: false }));
+                        ParticleSystem.textMesh.position.set(0, 14, 0); ParticleSystem.textMesh.scale.set(0,0,0);
+                        scene.add(ParticleSystem.textMesh);
+                    },
+
+                    createTextTarget: (txt) => {
+                        const tCanvas = document.createElement('canvas');
+                        tCanvas.width = 512; tCanvas.height = 256;
+                        const tCtx = tCanvas.getContext('2d', {willReadFrequently: true});
+                        tCtx.fillStyle = 'white'; tCtx.textAlign = 'center'; tCtx.textBaseline = 'middle';
+                        
+                        let fontSize = 130;
+                        if(txt.length > 5) fontSize = 60;
+                        else if(txt.length > 3) fontSize = 80;
+                        else if(txt.length > 1) fontSize = 110;
+                        else fontSize = 180; 
+                        
+                        tCtx.font = `bold ${fontSize}px "Noto Sans SC", sans-serif`;
+                        
+                        tCtx.fillText(txt, 256, 128);
+                        
+                        const imgData = tCtx.getImageData(0,0,512,256).data;
+                        const coords = [];
+                        for(let y=0; y<256; y+=2) {
+                            for(let x=0; x<512; x+=2) {
+                                if(imgData[(y*512 + x) * 4 + 3] > 128) coords.push({x: (x - 256)*0.15, y: -(y - 128)*0.15, z: (Math.random()-0.5)*2});
+                            }
+                        }
+                        const targetArr = new Float32Array(ParticleSystem.count * 3);
+                        const noiseSpread = txt.length === 1 ? 1.5 : 0.5;
+                        for(let i=0; i<ParticleSystem.count; i++) {
+                            const ref = coords[i % coords.length] || {x:0, y:0, z:0};
+                            targetArr[i*3] = ref.x + (Math.random()-0.5)*noiseSpread; 
+                            targetArr[i*3+1] = ref.y + (Math.random()-0.5)*noiseSpread; 
+                            targetArr[i*3+2] = ref.z + (Math.random()-0.5)*noiseSpread;
+                        }
+                        ParticleSystem.positions[txt] = targetArr;
+                    },
+
+                    morphTo: (targetMode, duration = 1800) => {
+                        return new Promise(resolve => {
+                            if(State.isMorphing && ParticleSystem.morphTween) ParticleSystem.morphTween.stop();
+                            State.isMorphing = true;
+                            
+                            const currentPosArray = ParticleSystem.pointsMesh.geometry.attributes.position.array;
+                            const targetArray = ParticleSystem.positions[targetMode];
+                            for(let i=0; i<ParticleSystem.count*3; i++) ParticleSystem.positions.start[i] = currentPosArray[i];
+
+                            ParticleSystem.morphParams.progress = 0;
+                            ParticleSystem.morphTween = new TWEEN.Tween(ParticleSystem.morphParams)
+                                .to({ progress: 1 }, duration).easing(TWEEN.Easing.Exponential.InOut)
+                                .onUpdate(() => {
+                                    const p = ParticleSystem.morphParams.progress;
+                                    for(let i=0; i<ParticleSystem.count*3; i++) currentPosArray[i] = ParticleSystem.positions.start[i] + (targetArray[i] - ParticleSystem.positions.start[i]) * p;
+                                    ParticleSystem.pointsMesh.geometry.attributes.position.needsUpdate = true;
+                                }).onComplete(() => { State.isMorphing = false; resolve(); }).start();
+
+                            if (State.phase === 'PRE_BLOW' || State.phase === 'D') {
+                                if (targetMode === 'tree' || targetMode === 'scatter') {
+                                    const targetScale = targetMode === 'tree' ? 1 : 0;
+                                    new TWEEN.Tween(ParticleSystem.candleMesh.scale).to({x: targetScale, y: targetScale, z: targetScale}, 1500).easing(TWEEN.Easing.Back.InOut).start();
+                                    new TWEEN.Tween(ParticleSystem.textMesh.scale).to({x: targetScale, y: targetScale, z: targetScale}, 1500).easing(TWEEN.Easing.Back.InOut).start();
+                                    new TWEEN.Tween(ParticleSystem.candleMesh.material).to({opacity: targetScale}, 1500).start();
+                                    new TWEEN.Tween(ParticleSystem.textMesh.material).to({opacity: targetScale}, 1500).start();
+                                    
+                                    if (targetMode === 'scatter' && State.isCandleLit) {
+                                        State.isCandleLit = false;
+                                        new TWEEN.Tween(ParticleSystem.flameMesh.scale).to({x:0, y:0, z:0}, 500).start();
+                                        new TWEEN.Tween(ParticleSystem.flameLight).to({intensity:0}, 500).start();
+                                    } else if (targetMode === 'tree') {
+                                        State.isCandleLit = true;
+                                        new TWEEN.Tween(ParticleSystem.flameMesh.scale).to({x:1, y:1, z:1}, 1000).delay(800).easing(TWEEN.Easing.Elastic.Out).start();
+                                        new TWEEN.Tween(ParticleSystem.flameLight).to({intensity:2}, 1000).delay(800).start();
+                                    }
+                                }
+                            } else {
+                                ParticleSystem.candleMesh.scale.set(0,0,0);
+                                ParticleSystem.textMesh.scale.set(0,0,0);
+                            }
+                        });
+                    },
+
+                    warpSpeed: () => {
+                        return new Promise(resolve => {
+                            State.isMorphing = true;
+                            const currentPosArray = ParticleSystem.pointsMesh.geometry.attributes.position.array;
+                            const params = { zOffset: 0 };
+                            const startZ = new Float32Array(ParticleSystem.count);
+                            for(let i=0; i<ParticleSystem.count; i++) startZ[i] = currentPosArray[i*3+2];
+
+                            new TWEEN.Tween(params).to({ zOffset: 250 }, 1500).easing(TWEEN.Easing.Quadratic.In)
+                                .onUpdate(() => {
+                                    for(let i=0; i<ParticleSystem.count; i++) currentPosArray[i*3+2] = startZ[i] + params.zOffset * (1 + Math.random()*0.2);
+                                    ParticleSystem.pointsMesh.geometry.attributes.position.needsUpdate=true;
+                                }).start();
+
+                            new TWEEN.Tween(camera).to({ fov: 140 }, 1500).easing(TWEEN.Easing.Cubic.In)
+                                .onUpdate(() => camera.updateProjectionMatrix())
+                                .onComplete(() => { State.isMorphing = false; camera.fov = 60; camera.updateProjectionMatrix(); resolve(); }).start();
+                        });
+                    },
+
+                    addPhoto: (base64Url) => {
+                        const texLoader = new THREE.TextureLoader();
+                        texLoader.load(base64Url, (texture) => {
+                            texture.colorSpace = THREE.SRGBColorSpace;
+                            const aspect = texture.image.width / texture.image.height;
+                            const size = 8;
+                            const geo = new THREE.PlaneGeometry(size * aspect, size);
+                            
+                            const mat = new THREE.MeshBasicMaterial({ map: texture, side: THREE.DoubleSide, transparent: true, opacity: 0, toneMapped: false });
+                            const mesh = new THREE.Mesh(geo, mat);
+                            
+                            const edges = new THREE.EdgesGeometry(geo);
+                            const line = new THREE.LineSegments(edges, new THREE.LineBasicMaterial({ color: 0xff69b4, transparent: true, opacity: 0.6 }));
+                            mesh.add(line); 
+                            mesh.userData = { border: line, base64: base64Url }; 
+                            
+                            const sTheta = Math.random() * Math.PI * 2;
+                            const sPhi = Math.acos(2 * Math.random() - 1);
+                            const sR = 25 + Math.random() * 10;
+                            mesh.position.copy(new THREE.Vector3(sR * Math.sin(sPhi) * Math.cos(sTheta), sR * Math.sin(sPhi) * Math.sin(sTheta), sR * Math.cos(sPhi)));
+                            mesh.lookAt(0,0,0); 
+                            
+                            scene.add(mesh);
+                            ParticleSystem.photos.push(mesh);
+
+                            if(State.phase === 'D' && State.mode === 'scatter') {
+                                mesh.scale.set(0,0,0);
+                                new TWEEN.Tween(mesh.scale).to({x: 1, y: 1, z: 1}, 1500).easing(TWEEN.Easing.Elastic.Out).start();
+                                new TWEEN.Tween(mat).to({opacity: 1}, 1000).start();
+                            } else {
+                                mesh.scale.set(0,0,0);
+                            }
+                        });
+                    }
+                };
+
+                async function runIntroSequence() {
+                    State.sequenceId++; 
+                    State.phase = 'PRE_BLOW';
+                    
+                    ParticleSystem.morphTo('tree', 1500);
+                    controls.autoRotate = true; 
+                    State.isCandleLit = true;
+                    ParticleSystem.candleMesh.scale.set(1, 1, 1);
+                    ParticleSystem.candleMesh.material.opacity = 1;
+                    ParticleSystem.flameMesh.scale.set(1, 1, 1);
+                    ParticleSystem.flameLight.intensity = 2;
+
+                    DOM.crosshair.classList.remove('active');
+                    DOM.gestureState.classList.remove('hidden'); DOM.gestureState.style.opacity = '1';
+                    DOM.modeText.innerText = "模式: 聚合蛋糕 (等待吹气)";
+                    DOM.modeText.style.color = "#00ffaa";
+                    DOM.hintText.innerHTML = "🌬️ 吹底部麦克风孔、或双击屏幕开启";
+                    
+                    DOM.topControls.style.opacity = '1'; DOM.topControls.style.pointerEvents = 'auto';
+
+                    if(State.gesturesEnabled) {
+                        DOM.pipContainer.classList.remove('hidden'); DOM.pipContainer.style.opacity = '1';
+                    }
+                    
+                    if (window.localAudioContext && window.localAudioContext.state === 'suspended') {
+                        window.localAudioContext.resume();
+                    }
+                }
+
+                async function playCountdownSequence() {
+                    State.sequenceId++;
+                    const currentSeq = State.sequenceId;
+                    State.phase = 'TRANSITION';
+                    DOM.gestureState.style.opacity = '0'; 
+
+                    for(let txt of ["5", "4", "3", "2", "1"]) { 
+                        if(State.sequenceId !== currentSeq) return; 
+                        ParticleSystem.morphTo(txt, 800); 
+                        await new Promise(r => setTimeout(r, 1000)); 
+                    }
+
+                    for(let i=0; i<State.customPhrases.length; i++) {
+                        if(State.sequenceId !== currentSeq) return; 
+                        ParticleSystem.morphTo(State.customPhrases[i], 1200); 
+                        await new Promise(r => setTimeout(r, i === State.customPhrases.length - 1 ? 2500 : 1800)); 
+                    }
+                    
+                    if(State.sequenceId !== currentSeq) return;
+                    await ParticleSystem.warpSpeed();
+
+                    if(State.sequenceId !== currentSeq) return;
+
+                    for(let i=0; i<6; i++) { 
+                        Fireworks.fire(new THREE.Vector3((Math.random()-0.5)*30, 10 + Math.random()*20, (Math.random()-0.5)*15)); 
+                        await new Promise(r => setTimeout(r, 800)); 
+                        if(State.sequenceId !== currentSeq) return;
+                    }
+                    await new Promise(r => setTimeout(r, 3000)); 
+
+                    if(State.sequenceId !== currentSeq) return;
+
+                    if (!AudioSys.isPlaying) {
+                        await AudioSys.toggle();
+                        DOM.btnMusic.innerText = "🔊 音乐: 开";
+                        DOM.btnMusic.classList.add('active');
+                    }
+
+                    State.phase = 'D';
+                    DOM.gestureState.style.opacity = '1';
+                    DOM.hintText.innerHTML = "👉 点击照片看细节，双击空白处 聚拢/散开";
+                    DOM.giftBtn.style.opacity = '1'; DOM.giftBtn.style.pointerEvents = 'auto';
+                    setMode('scatter');
+                }
+
+                const blowOutCandle = () => {
+                    State.isCandleLit = false;
+                    new TWEEN.Tween(ParticleSystem.flameMesh.scale).to({x:0, y:0, z:0}, 300).start();
+                    new TWEEN.Tween(ParticleSystem.flameLight).to({intensity:0}, 300).start();
+                    
+                    if (State.phase === 'PRE_BLOW') {
+                        DOM.modeText.innerText = "呼~ 开启惊喜！";
+                        setTimeout(playCountdownSequence, 600);
+                    } else if (State.phase === 'D') {
+                        DOM.modeText.innerText = "呼~ 开启回忆星空！";
+                        setTimeout(() => setMode('scatter'), 600);
+                    }
+                };
+
+                const resetToInitialState = () => {
+                    if (State.phase === 'A') return;
+                    
+                    State.sequenceId++; 
+                    State.phase = 'PRE_BLOW';
+                    State.mode = 'tree';
+
+                    TWEEN.removeAll(); 
+                    exitZoom(true); 
+
+                    Fireworks.systems.forEach(fw => { scene.remove(fw.mesh); fw.mesh.geometry.dispose(); fw.mesh.material.dispose(); });
+                    Fireworks.systems = [];
+
+                    camera.fov = 60; camera.updateProjectionMatrix();
+                    camera.position.set(0, 10, 50); controls.target.set(0, 0, 0);
+                    controls.autoRotate = true;
+
+                    ParticleSystem.textMesh.scale.set(0, 0, 0);
+                    
+                    ParticleSystem.pointsMesh.material.opacity = 0.9;
+                    ParticleSystem.photos.forEach(photo => {
+                        photo.scale.set(0, 0, 0); photo.material.opacity = 0;
+                        if(photo.userData.border) photo.userData.border.material.opacity = 0.6;
+                    });
+
+                    ParticleSystem.morphTo('tree', 1500);
+
+                    State.isCandleLit = true;
+                    ParticleSystem.candleMesh.scale.set(1, 1, 1);
+                    ParticleSystem.candleMesh.material.opacity = 1;
+                    ParticleSystem.flameMesh.scale.set(1, 1, 1);
+                    ParticleSystem.flameLight.intensity = 2;
+
+                    DOM.crosshair.classList.remove('active');
+                    State.hoverIndex = -1;
+                    DOM.gestureState.style.opacity = '1';
+                    DOM.modeText.innerText = "模式: 聚合蛋糕 (等待吹气)";
+                    DOM.modeText.style.color = "#00ffaa";
+                    DOM.hintText.innerHTML = "🌬️ 吹麦克风、或双击屏幕开启";
+                    DOM.giftBtn.style.opacity = '0'; DOM.giftBtn.style.pointerEvents = 'none';
+
+                    if (AudioSys.isPlaying) {
+                        AudioSys.toggle();
+                        DOM.btnMusic.innerText = "🔊 音乐: 关"; DOM.btnMusic.classList.remove('active');
+                    }
+                };
+
+                function setMode(newMode) {
+                    if(State.mode === newMode || State.phase !== 'D') return;
+                    if(State.mode === 'zoom' && newMode !== 'zoom') {
+                        exitZoom(); setTimeout(() => executeModeSwitch(newMode), 500);
+                    } else executeModeSwitch(newMode);
+                }
+
+                function executeModeSwitch(newMode) {
+                    State.mode = newMode;
+                    if(newMode === 'tree') {
+                        DOM.modeText.innerText = "模式: 聚合蛋糕 (Tree)"; DOM.modeText.style.color = "#00ffaa";
+                        ParticleSystem.morphTo('tree'); controls.autoRotate = true;
+                        ParticleSystem.photos.forEach(photo => { new TWEEN.Tween(photo.scale).to({x: 0, y: 0, z: 0}, 1000).easing(TWEEN.Easing.Back.In).start(); new TWEEN.Tween(photo.material).to({opacity: 0}, 1000).start(); });
+                    } else if(newMode === 'scatter') {
+                        DOM.modeText.innerText = "模式: 星云散开 (Scatter)"; DOM.modeText.style.color = "#00aaff";
+                        ParticleSystem.morphTo('scatter'); controls.autoRotate = true;
+                        ParticleSystem.photos.forEach(photo => { new TWEEN.Tween(photo.scale).to({x: 1, y: 1, z: 1}, 1500).easing(TWEEN.Easing.Elastic.Out).start(); new TWEEN.Tween(photo.material).to({opacity: 1}, 1000).start(); });
+                    }
+                }
+
+                async function enterZoom(index) {
+                    State.mode = 'zoom'; DOM.modeText.innerText = "模式: 照片特写 (Zoom)"; DOM.modeText.style.color = "#ffffff";
+                    controls.autoRotate = false; 
+
+                    new TWEEN.Tween(ParticleSystem.pointsMesh.material).to({opacity: 0.1}, 800).start();
+                    ParticleSystem.photos.forEach((photo, i) => {
+                        if(i !== index) {
+                            new TWEEN.Tween(photo.material).to({opacity: 0}, 500).start();
+                            if(photo.userData.border) new TWEEN.Tween(photo.userData.border.material).to({opacity: 0}, 500).start();
+                        }
+                    });
+
+                    const targetPhoto = ParticleSystem.photos[index];
+                    const targetPos = new THREE.Vector3(); targetPhoto.getWorldPosition(targetPos);
+                    const normal = new THREE.Vector3(0, 0, 1); normal.applyQuaternion(targetPhoto.quaternion);
+                    
+                    const camTargetPos = targetPos.clone().add(normal.multiplyScalar(10)); 
+                    
+                    new TWEEN.Tween(camera.position).to({x: camTargetPos.x, y: camTargetPos.y, z: camTargetPos.z}, 1200).easing(TWEEN.Easing.Cubic.Out).start();
+                    new TWEEN.Tween(controls.target).to({x: targetPos.x, y: targetPos.y, z: targetPos.z}, 1200).easing(TWEEN.Easing.Cubic.Out).start();
+                    
+                    State.activeZoomToken++;
+                    const currentZoomToken = State.activeZoomToken;
+                    
+                    DOM.aiCaptionBox.classList.remove('hidden-box');
+                    DOM.aiCaptionText.innerText = "✨ AI 正在凝视相片中的回忆...";
+                    DOM.hintText.innerHTML = "👉 点击任意位置返回全景";
+
+                    const base64Data = targetPhoto.userData.base64;
+                    if(base64Data) {
+                        const prompt = "请仔细观察这张温馨的合照/照片，写一句不超过15个汉字的温暖、诗意的回忆描述。不要有其他多余的解释。";
+                        const caption = await GeminiAPI.callVision(prompt, base64Data);
+                        
+                        if (State.activeZoomToken === currentZoomToken && State.mode === 'zoom') {
+                            if (caption) {
+                                DOM.aiCaptionText.innerHTML = `✨ ${caption}`;
+                            } else {
+                                DOM.aiCaptionText.innerText = "✨ 一段珍贵的美好回忆";
+                            }
+                        }
+                    }
+                }
+
+                function exitZoom(force = false) {
+                    State.activeZoomToken++; 
+                    DOM.aiCaptionBox.classList.add('hidden-box'); 
+
+                    if (force) return;
+
+                    controls.autoRotate = true;
+                    DOM.hintText.innerHTML = "👉 点击照片看细节，双击空白处 聚拢/散开";
+                    
+                    new TWEEN.Tween(ParticleSystem.pointsMesh.material).to({opacity: 0.9}, 800).start();
+                    ParticleSystem.photos.forEach(photo => {
+                        new TWEEN.Tween(photo.material).to({opacity: 1}, 800).start();
+                        if(photo.userData.border) new TWEEN.Tween(photo.userData.border.material).to({opacity: 0.6}, 800).start();
+                    });
+
+                    new TWEEN.Tween(camera.position).to({x: 0, y: 10, z: 50}, 1200).easing(TWEEN.Easing.Cubic.Out).start();
+                    new TWEEN.Tween(controls.target).to({x: 0, y: 0, z: 0}, 1200).easing(TWEEN.Easing.Cubic.Out).start();
+                }
+
+                DOM.giftBtn.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    DOM.giftModal.classList.remove('hidden');
+                    setTimeout(() => { DOM.giftModal.classList.add('show'); }, 10);
+                });
+                const hideGiftModal = () => {
+                    DOM.giftModal.classList.remove('show');
+                    setTimeout(() => { DOM.giftModal.classList.add('hidden'); }, 400);
+                };
+                DOM.closeGift.addEventListener('click', (e) => { e.stopPropagation(); hideGiftModal(); });
+                
+                DOM.btnSurprise.addEventListener('click', (e) => { 
+                    e.stopPropagation(); 
+                    hideGiftModal(); 
+
+                    DOM.bigCardTextDisplay.innerText = State.cardTextData;
+                    if(State.cardImgData) {
+                        DOM.bigCardImgPreview.src = State.cardImgData;
+                    }
+                    DOM.bigCardModal.classList.remove('hidden');
+                    setTimeout(() => { DOM.bigCardModal.classList.add('show'); }, 100);
+                });
+
+                DOM.closeBigCard.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    DOM.bigCardModal.classList.remove('show');
+                    setTimeout(() => { DOM.bigCardModal.classList.add('hidden'); }, 500);
+
+                    if(State.phase === 'D' && State.mode === 'tree' && State.isCandleLit) {
+                        blowOutCandle(); 
+                    } else if (State.phase === 'D' && State.mode === 'scatter') {
+                        Fireworks.fire(new THREE.Vector3(0, 15, 0));
+                        setTimeout(() => Fireworks.fire(new THREE.Vector3(-15, 20, 10)), 300);
+                        setTimeout(() => Fireworks.fire(new THREE.Vector3(15, 25, -10)), 600);
+                    }
+                });
+
+                const raycaster = new THREE.Raycaster();
+                const centerPoint = new THREE.Vector2(0, 0); 
+
+                function checkHover() {
+                    if(State.mode !== 'scatter' || State.phase !== 'D') {
+                        DOM.crosshair.classList.remove('active');
+                        if (State.hoverIndex !== -1 && ParticleSystem.photos[State.hoverIndex] && ParticleSystem.photos[State.hoverIndex].userData.border) {
+                            ParticleSystem.photos[State.hoverIndex].userData.border.material.color.setHex(0xffffff);
+                            new TWEEN.Tween(ParticleSystem.photos[State.hoverIndex].scale).to({x:1, y:1, z:1}, 300).start();
+                            State.hoverIndex = -1;
+                        }
+                        return;
+                    }
+                    raycaster.setFromCamera(centerPoint, camera);
+                    const intersects = raycaster.intersectObjects(ParticleSystem.photos, false);
+                    
+                    if(intersects.length > 0) {
+                        const hoveredObj = intersects[0].object;
+                        const newHoverIndex = ParticleSystem.photos.indexOf(hoveredObj);
+                        
+                        if(newHoverIndex !== -1 && State.hoverIndex !== newHoverIndex) {
+                            if(State.hoverIndex !== -1 && ParticleSystem.photos[State.hoverIndex] && ParticleSystem.photos[State.hoverIndex].userData.border) {
+                                ParticleSystem.photos[State.hoverIndex].userData.border.material.color.setHex(0xffffff);
+                                new TWEEN.Tween(ParticleSystem.photos[State.hoverIndex].scale).to({x:1, y:1, z:1}, 300).start();
+                            }
+                            State.hoverIndex = newHoverIndex;
+                            if (hoveredObj && hoveredObj.userData.border) hoveredObj.userData.border.material.color.setHex(0xff1493); 
+                            new TWEEN.Tween(hoveredObj.scale).to({x:1.15, y:1.15, z:1.15}, 300).easing(TWEEN.Easing.Back.Out).start();
+                            DOM.crosshair.classList.add('active');
+                        }
+                    } else {
+                        if(State.hoverIndex !== -1 && ParticleSystem.photos[State.hoverIndex] && ParticleSystem.photos[State.hoverIndex].userData.border) {
+                            ParticleSystem.photos[State.hoverIndex].userData.border.material.color.setHex(0xffffff);
+                            new TWEEN.Tween(ParticleSystem.photos[State.hoverIndex].scale).to({x:1, y:1, z:1}, 300).start();
+                            State.hoverIndex = -1;
+                            DOM.crosshair.classList.remove('active');
+                        }
+                    }
+                }
+
+                let lastTapTime = 0;
+                window.addEventListener('pointerdown', (e) => {
+                    if(e.target.closest('#top-controls') || e.target.closest('#loading-screen') || e.target.closest('#ai-caption-box') || e.target.closest('#gift-btn') || e.target.closest('#gift-modal') || e.target.closest('#big-card-modal') || e.target.closest('#edit-card-modal')) return;
+                    
+                    const now = performance.now();
+                    if (now - lastTapTime < 400) { // 手机端双击灵敏度提高
+                        if (State.phase === 'PRE_BLOW') { if (State.isCandleLit) blowOutCandle(); } 
+                        else if (State.phase === 'D') {
+                            if(State.mode === 'tree') { if (State.isCandleLit) blowOutCandle(); else setMode('scatter'); } 
+                            else if(State.mode === 'scatter') setMode('tree');
+                        }
+                        lastTapTime = 0;
+                        return;
+                    }
+                    lastTapTime = now;
+
+                    if(State.phase !== 'D') return;
+
+                    if(State.mode === 'zoom') {
+                        setMode('scatter');
+                        return;
+                    }
+
+                    if(State.mode === 'scatter') {
+                        const rect = renderer.domElement.getBoundingClientRect();
+                        const mouse = new THREE.Vector2(((e.clientX - rect.left) / rect.width) * 2 - 1, -((e.clientY - rect.top) / rect.height) * 2 + 1);
+                        raycaster.setFromCamera(mouse, camera);
+                        const intersects = raycaster.intersectObjects(ParticleSystem.photos, false);
+                        if (intersects.length > 0) {
+                            const idx = ParticleSystem.photos.indexOf(intersects[0].object);
+                            if (idx !== -1) enterZoom(idx);
+                        }
+                    }
+                });
+
+                // --- 硬件麦克风与 MediaPipe 系统 ---
+                let handLandmarker; let faceLandmarker; let lastGestureTime = 0; let lastVideoTime = -1;
+                const video = document.getElementById('webcam-video');
+                const canvasCtx = document.getElementById('output-canvas').getContext('2d');
+
+                const initMediaPipe = async () => {
+                    let stream;
+                    try {
+                        stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+                        try {
+                            const AudioContext = window.AudioContext || window.webkitAudioContext;
+                            if(AudioContext) {
+                                window.localAudioContext = new AudioContext();
+                                window.micAnalyser = window.localAudioContext.createAnalyser();
+                                window.micAnalyser.fftSize = 256;
+                                const source = window.localAudioContext.createMediaStreamSource(stream);
+                                source.connect(window.micAnalyser);
+                                window.micDataArray = new Uint8Array(window.micAnalyser.frequencyBinCount);
+                            }
+                        } catch(e) {}
+                    } catch (err) {
+                        try { 
+                            stream = await navigator.mediaDevices.getUserMedia({ video: true }); 
+                        } catch(e) { 
+                            unlockUI("未检测到摄像头权限，请使用屏幕双击操作。");
+                            return; 
+                        }
+                    }
+                    
+                    video.srcObject = stream;
+
+                    try {
+                        const vision = await FilesetResolver.forVisionTasks("https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.3/wasm");
+                        handLandmarker = await HandLandmarker.createFromOptions(vision, { baseOptions: { modelAssetPath: "https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task", delegate: "GPU" }, runningMode: "VIDEO", numHands: 1 });
+                        faceLandmarker = await FaceLandmarker.createFromOptions(vision, { baseOptions: { modelAssetPath: "https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task", delegate: "GPU" }, runningMode: "VIDEO", numFaces: 1 });
+                        
+                        video.addEventListener("loadeddata", () => {
+                            document.getElementById('output-canvas').width = video.videoWidth; 
+                            document.getElementById('output-canvas').height = video.videoHeight;
+                            State.gesturesEnabled = true; 
+                            unlockUI("视觉引擎与模型加载就绪！");
+                        });
+                    } catch (err) { 
+                        unlockUI("视觉引擎连接失败，已开启基础触屏模式。");
+                    }
+                };
+
+                const detectFeatures = (handResults, faceResults) => {
+                    if(State.phase !== 'PRE_BLOW' && State.phase !== 'D') return;
+                    const now = performance.now();
+                    if(now - lastGestureTime < 800) return; 
+
+                    if (State.mode === 'tree' && State.isCandleLit && faceResults.faceLandmarks && faceResults.faceLandmarks.length > 0) {
+                        const face = faceResults.faceLandmarks[0];
+                        const dist = (p1, p2) => Math.sqrt(Math.pow(p1.x-p2.x,2) + Math.pow(p1.y-p2.y,2));
+                        const normMouthWidth = dist(face[78], face[308]) / dist(face[33], face[263]);
+                        const mouthRatio = dist(face[13], face[14]) / dist(face[78], face[308]);
+
+                        if (normMouthWidth < 0.32 && mouthRatio > 0.4) { blowOutCandle(); lastGestureTime = now; return; }
+                    }
+
+                    if(State.phase === 'D' && handResults.landmarks && handResults.landmarks.length > 0) {
+                        const hand = handResults.landmarks[0];
+                        const dist = (p1, p2) => Math.sqrt(Math.pow(p1.x-p2.x,2) + Math.pow(p1.y-p2.y,2));
+                        const pinchDist = dist(hand[4], hand[8]);
+                        const isOpen = dist(hand[0], hand[12]) > 0.4 && dist(hand[0], hand[20]) > 0.4;
+                        const isFist = dist(hand[0], hand[12]) < 0.25 && dist(hand[0], hand[20]) < 0.25;
+
+                        if (pinchDist < 0.05) { 
+                            if(State.mode === 'zoom') setMode('scatter');
+                            else if(State.mode === 'scatter' && State.hoverIndex !== -1) enterZoom(State.hoverIndex);
+                            lastGestureTime = now; 
+                        }
+                        else if (isOpen) { setMode('scatter'); lastGestureTime = now; }
+                        else if (isFist) { setMode('tree'); lastGestureTime = now; }
+                    }
+                };
+
+                const drawLandmarks = (handResults, faceResults) => {
+                    canvasCtx.save(); canvasCtx.clearRect(0, 0, video.videoWidth, video.videoHeight);
+                    if (handResults && handResults.landmarks) {
+                        for (const landmarks of handResults.landmarks) {
+                            canvasCtx.fillStyle = "#ff69b4";
+                            for (let i = 0; i < landmarks.length; i++) { canvasCtx.beginPath(); canvasCtx.arc(landmarks[i].x * video.videoWidth, landmarks[i].y * video.videoHeight, 2, 0, 2 * Math.PI); canvasCtx.fill(); }
+                        }
+                    }
+                    if (faceResults && faceResults.faceLandmarks) {
+                        for (const landmarks of faceResults.faceLandmarks) {
+                            canvasCtx.fillStyle = "#ff1493";
+                            for (let pt of [13, 14, 78, 308]) { canvasCtx.beginPath(); canvasCtx.arc(landmarks[pt].x * video.videoWidth, landmarks[pt].y * video.videoHeight, 3, 0, 2 * Math.PI); canvasCtx.fill(); }
+                        }
+                    }
+                    canvasCtx.restore();
+                };
+
+                const handlePhotoUploads = async (files) => {
+                    if (!files || files.length === 0) return;
+                    for(let i=0; i<files.length; i++) {
+                        const base64 = await compressImage(files[i]);
+                        await DB.addPhoto(base64); 
+                        ParticleSystem.addPhoto(base64); 
+                    }
+                    updatePhotoCount();
+                };
+
+                const updatePhotoCount = async () => {
+                    const photos = await DB.getPhotos();
+                    DOM.uploadText.innerText = `[ 缓存: ${photos.length} 张 ]`;
+                };
+
+                document.getElementById('upload-photos-start').addEventListener('change', (e) => handlePhotoUploads(e.target.files));
+                
+                document.getElementById('btn-add-photos').addEventListener('change', (e) => {
+                    handlePhotoUploads(e.target.files);
+                    if (State.phase === 'D' && State.mode === 'scatter') {
+                        ParticleSystem.photos.forEach(photo => { new TWEEN.Tween(photo.scale).to({x: 1, y: 1, z: 1}, 1500).easing(TWEEN.Easing.Elastic.Out).start(); });
+                    }
+                });
+
+                document.getElementById('upload-card-img').addEventListener('change', async (e) => {
+                    const file = e.target.files[0];
+                    if (!file) return;
+                    const base64 = await compressImage(file);
+                    await DB.saveSetting('cardImg', base64);
+                    State.cardImgData = base64;
+                    DOM.cardImgStatus.innerText = "主图已加载 ✅";
+                    DOM.cardImgStatus.classList.add('text-green-400');
+                });
+                
+                let textSaveTimeout;
+                document.getElementById('card-text-input').addEventListener('input', (e) => {
+                    State.cardTextData = e.target.value;
+                    clearTimeout(textSaveTimeout);
+                    textSaveTimeout = setTimeout(async () => {
+                        try { await DB.saveSetting('cardText', State.cardTextData); } catch(err) {}
+                    }, 500);
+                });
+
+                DOM.btnEditCard.addEventListener('click', () => {
+                    DOM.editCardText.value = State.cardTextData; 
+                    DOM.editCardModal.classList.remove('hidden');
+                    setTimeout(() => {
+                        DOM.editCardModal.classList.remove('opacity-0', 'pointer-events-none');
+                        DOM.editCardContent.classList.remove('scale-95');
+                        DOM.editCardContent.classList.add('scale-100');
+                    }, 10);
+                });
+
+                const closeEditModal = () => {
+                    DOM.editCardModal.classList.add('opacity-0', 'pointer-events-none');
+                    DOM.editCardContent.classList.remove('scale-100');
+                    DOM.editCardContent.classList.add('scale-95');
+                    setTimeout(() => DOM.editCardModal.classList.add('hidden'), 300);
+                };
+
+                DOM.btnCloseEdit.addEventListener('click', closeEditModal);
+                DOM.editCardBg.addEventListener('click', closeEditModal);
+
+                DOM.editCardImg.addEventListener('change', async (e) => {
+                    const file = e.target.files[0];
+                    if (!file) return;
+                    const base64 = await compressImage(file);
+                    await DB.saveSetting('cardImg', base64);
+                    State.cardImgData = base64;
+                    DOM.editCardImgStatus.innerText = "新背景已加载 ✅";
+                    DOM.editCardImgStatus.classList.add('text-green-400');
+                });
+
+                DOM.btnSaveEdit.addEventListener('click', async () => {
+                    State.cardTextData = DOM.editCardText.value;
+                    await DB.saveSetting('cardText', State.cardTextData); 
+                    
+                    const mainInput = document.getElementById('card-text-input');
+                    if(mainInput) mainInput.value = State.cardTextData; 
+                    
+                    closeEditModal();
+                    
+                    DOM.bigCardTextDisplay.innerText = State.cardTextData;
+                    if(State.cardImgData) {
+                        DOM.bigCardImgPreview.src = State.cardImgData;
+                    }
+                    DOM.bigCardModal.classList.remove('hidden');
+                    setTimeout(() => { DOM.bigCardModal.classList.add('show'); }, 100);
+                });
+
+                const handleMusicUpload = (file) => {
+                    if(!file) return;
+                    const reader = new FileReader();
+                    reader.onload = async (e) => {
+                        const base64 = e.target.result;
+                        try { await DB.saveAudio(base64); } catch(err) {}
+                        AudioSys.setCustomMusic(base64);
+                    };
+                    reader.readAsDataURL(file);
+                }
+                document.getElementById('upload-music-start').addEventListener('change', (e) => handleMusicUpload(e.target.files[0]));
+                document.getElementById('btn-change-music').addEventListener('change', (e) => handleMusicUpload(e.target.files[0]));
+
+                document.getElementById('btn-start').addEventListener('click', async () => {
+                    const ls = document.getElementById('loading-screen');
+                    ls.style.opacity = '0';
+                    
+                    if (window.localAudioContext && window.localAudioContext.state === 'suspended') {
+                        window.localAudioContext.resume();
+                    }
+
+                    setTimeout(() => { ls.style.display = 'none'; runIntroSequence(); }, 1000);
+                });
+
+                DOM.btnMusic.addEventListener('click', async () => {
+                    await AudioSys.toggle();
+                    if (AudioSys.isPlaying) {
+                        DOM.btnMusic.innerText = "🔊 音乐: 开"; DOM.btnMusic.classList.add('active');
+                    } else {
+                        DOM.btnMusic.innerText = "🔊 音乐: 关"; DOM.btnMusic.classList.remove('active');
+                    }
+                });
+
+                DOM.btnReplay.addEventListener('click', () => resetToInitialState());
+
+                DOM.btnClear.addEventListener('click', async () => {
+                    if(confirm("确定要清空所有本地照片和自定义音乐吗？")) {
+                        await DB.clearAll();
+                        location.reload(); 
+                    }
+                });
+
+                window.addEventListener('resize', () => {
+                    camera.aspect = window.innerWidth / window.innerHeight; camera.updateProjectionMatrix();
+                    renderer.setSize(window.innerWidth, window.innerHeight); composer.setSize(window.innerWidth, window.innerHeight);
+                });
+
+                function animate() {
+                    requestAnimationFrame(animate);
+                    TWEEN.update(); controls.update(); checkHover();
+                    
+                    if(State.phase === 'TRANSITION' || State.phase === 'D') Fireworks.update();
+
+                    if (ParticleSystem.flameMesh && State.isCandleLit && (State.phase === 'PRE_BLOW' || State.phase === 'D')) {
+                        const t = performance.now() * 0.01;
+                        ParticleSystem.flameMesh.scale.set(1 + Math.sin(t)*0.1, 1 + Math.cos(t)*0.1, 1 + Math.sin(t)*0.1);
+                        ParticleSystem.flameLight.intensity = 2 + Math.sin(t*0.5)*0.5;
+
+                        // 物理麦克风吹气检测，下调阈值使手机更容易触发
+                        if (window.micAnalyser && window.micDataArray) {
+                            window.micAnalyser.getByteFrequencyData(window.micDataArray);
+                            let sum = 0;
+                            for(let i=0; i<15; i++) sum += window.micDataArray[i];
+                            let avg = sum / 15;
+                            
+                            if (avg > 120) { // 手机麦克风更敏感
+                                if (performance.now() - lastGestureTime > 800) {
+                                    blowOutCandle();
+                                    lastGestureTime = performance.now();
+                                }
+                            }
+                        }
+                    }
+
+                    if(State.gesturesEnabled && handLandmarker && faceLandmarker && video.currentTime !== lastVideoTime) {
+                        lastVideoTime = video.currentTime;
+                        const perfNow = performance.now();
+                        const handResults = handLandmarker.detectForVideo(video, perfNow);
+                        const faceResults = faceLandmarker.detectForVideo(video, perfNow);
+                        drawLandmarks(handResults, faceResults); detectFeatures(handResults, faceResults);
+                    }
+
+                    if(ParticleSystem.textMesh) ParticleSystem.textMesh.lookAt(camera.position);
+
+                    composer.render();
+                }
+
+                const startApp = async () => {
+                    try {
+                        await DB.init();
+                        const photos = await DB.getPhotos();
+                        if(photos && photos.length > 0) {
+                            DOM.uploadText.innerText = `[ 缓存: ${photos.length} 张 ]`;
+                            photos.forEach(base64 => ParticleSystem.addPhoto(base64));
+                        }
+                        const customAudio = await DB.getAudio();
+                        if(customAudio) {
+                            AudioSys.setCustomMusic(customAudio);
+                        }
+                        const savedCardImg = await DB.getSetting('cardImg');
+                        if(savedCardImg) {
+                            State.cardImgData = savedCardImg;
+                            DOM.cardImgStatus.innerText = "主图已加载 ✅";
+                            DOM.cardImgStatus.classList.add('text-green-400');
+                        }
+                        const savedCardText = await DB.getSetting('cardText');
+                        if(savedCardText) {
+                            State.cardTextData = savedCardText;
+                            document.getElementById('card-text-input').value = savedCardText;
+                        } else {
+                            document.getElementById('card-text-input').value = State.cardTextData; 
+                        }
+                    } catch(e) {
+                        console.warn("本地数据库不可用，文件将不会持久化保存", e);
+                    }
+
+                    ParticleSystem.init();
+                    
+                    if(!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+                        unlockUI("设备不支持摄像头，可使用屏幕点按操作。");
+                    } else {
+                        initMediaPipe();
+                        setTimeout(() => {
+                            if (!document.getElementById('action-container').classList.contains('hidden')) return;
+                            unlockUI("加载超时或权限被拒，已开启基础触屏模式。");
+                        }, 8000);
+                    }
+
+                    animate();
+                };
+
+                startApp();
+
+            </script>
+        </body>
+        </html>

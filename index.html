@@ -549,7 +549,6 @@
             gestureState: document.getElementById('gesture-state'), 
             topControls: document.getElementById('top-controls'),
             topLogo: document.getElementById('top-logo'),
-            // 移除了 leftTypography
             bottomWatermark: document.getElementById('bottom-watermark'),
             btnMusic: document.getElementById('btn-music'), 
             musicBtnText: document.getElementById('music-btn-text'),
@@ -625,7 +624,6 @@
             composer.addPass(bloomPass);
             scene.add(new THREE.AmbientLight(0xffffff, 0.5));
             
-            // 移除了此处的 createNeonRings()，将其迁入粒子系统进行统一状态管理
         } catch (e) {
             console.error("WebGL Init Error:", e);
         }
@@ -1142,47 +1140,82 @@
         let handLandmarker, lastGestureTime = 0, lastVideoTime = -1;
         const video = document.getElementById('webcam-video'), canvasCtx = document.getElementById('output-canvas').getContext('2d');
         
-        // 核心修改：完善摄像头和AI引擎的异常捕获与提示逻辑，并更换高速 CDN 镜像
-        const initSensors = async () => {
-            try {
-                if (!window.isSecureContext) console.warn("未处于 HTTPS/Localhost 环境，麦克风可能被拦截。");
-                const audioStream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: false, autoGainControl: false, noiseSuppression: false } });
-                const AudioContext = window.AudioContext || window.webkitAudioContext;
-                if(AudioContext) {
-                    window.localAudioContext = new AudioContext(); window.micAnalyser = window.localAudioContext.createAnalyser(); window.micAnalyser.fftSize = 256;
-                    window.localAudioContext.createMediaStreamSource(audioStream).connect(window.micAnalyser); window.micDataArray = new Uint8Array(window.micAnalyser.frequencyBinCount);
+        // 终极求稳架构：原生序列加载 + 摄像头降频防崩溃
+        const initSensors = () => {
+            // 线程一：独立请求麦克风
+            (async () => {
+                try {
+                    const audioStream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: false, autoGainControl: false, noiseSuppression: false } });
+                    const AudioContext = window.AudioContext || window.webkitAudioContext;
+                    if(AudioContext) {
+                        window.localAudioContext = new AudioContext(); window.micAnalyser = window.localAudioContext.createAnalyser(); window.micAnalyser.fftSize = 256;
+                        window.localAudioContext.createMediaStreamSource(audioStream).connect(window.micAnalyser); window.micDataArray = new Uint8Array(window.micAnalyser.frequencyBinCount);
+                    }
+                } catch (err) { console.warn("麦克风受阻:", err); }
+            })();
+
+            // 线程二：安全加载视觉引擎
+            (async () => {
+                try {
+                    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) throw new Error("环境不安全");
+                    
+                    // 核心修复一：强制限制摄像头分辨率为 640x480！防止新电脑的高清摄像头撑爆浏览器 AI 内存导致静默崩溃
+                    const videoStream = await navigator.mediaDevices.getUserMedia({ 
+                        video: { facingMode: "user", width: { ideal: 640 }, height: { ideal: 480 } } 
+                    });
+                    video.srcObject = videoStream; 
+                    
+                    await new Promise(resolve => {
+                        video.onloadedmetadata = () => video.play().then(resolve).catch(resolve);
+                    });
+                    
+                    // 核心修复二：WASM 运行库多节点容错，不抛异常
+                    let vision;
+                    const wasmUrls = [
+                        "https://fastly.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.3/wasm",
+                        "https://unpkg.com/@mediapipe/tasks-vision@0.10.3/wasm",
+                        "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.3/wasm"
+                    ];
+                    for(let url of wasmUrls) {
+                        try { vision = await FilesetResolver.forVisionTasks(url); break; } 
+                        catch(e) { console.warn("WASM节点失效，切换下一个..."); }
+                    }
+                    if(!vision) throw new Error("基础引擎下载失败");
+                    
+                    // 核心修复三：抛弃易触发 CORS 拦截的探针，改为原生的串行加载。给每个国内优质节点 6 秒钟的尝试时间
+                    const modelUrls = [
+                        "https://fastly.jsdelivr.net/gh/google/mediapipe@master/mediapipe/tasks/testdata/vision/hand_landmarker.task",
+                        "https://mirror.ghproxy.com/https://raw.githubusercontent.com/google/mediapipe/master/mediapipe/tasks/testdata/vision/hand_landmarker.task",
+                        "https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task"
+                    ];
+
+                    for (let url of modelUrls) {
+                        try {
+                            const loadPromise = HandLandmarker.createFromOptions(vision, { 
+                                baseOptions: { modelAssetPath: url, delegate: "CPU" }, 
+                                runningMode: "VIDEO", 
+                                numHands: 1 
+                            });
+                            const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error("Timeout")), 6000));
+                            handLandmarker = await Promise.race([loadPromise, timeoutPromise]);
+                            if (handLandmarker) break; // 只要有一个节点加载成功，立刻跳出循环！
+                        } catch (e) {
+                            console.warn(`节点 ${url} 加载失败，尝试下一个...`);
+                        }
+                    }
+                    
+                    if (!handLandmarker) throw new Error("所有 AI 模型镜像均被拦截");
+                    
+                    document.getElementById('output-canvas').width = video.videoWidth; 
+                    document.getElementById('output-canvas').height = video.videoHeight;
+                    State.gesturesEnabled = true; 
+                    unlockUI("视觉引擎就绪！");
+                    
+                } catch (err) { 
+                    console.error("视觉加载终止:", err); 
+                    unlockUI("手势网络受限，已自动开启触屏控制。"); 
                 }
-            } catch (err) { console.warn("麦克风权限异常:", err); }
-            
-            try {
-                if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) throw new Error("环境不安全(需HTTPS)");
-                const videoStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "user" } });
-                video.srcObject = videoStream; video.onloadedmetadata = () => video.play();
-                
-                const vision = await FilesetResolver.forVisionTasks("https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.3/wasm");
-                
-                // 替换为国内更顺畅的镜像路径，大幅降低加载失败率
-                handLandmarker = await HandLandmarker.createFromOptions(vision, { 
-                    baseOptions: { 
-                        modelAssetPath: "https://cdn.jsdelivr.net/gh/google/mediapipe@master/mediapipe/tasks/testdata/vision/hand_landmarker.task", 
-                        delegate: "CPU" 
-                    }, 
-                    runningMode: "VIDEO", 
-                    numHands: 1 
-                });
-                
-                const onReady = () => {
-                    document.getElementById('output-canvas').width = video.videoWidth; document.getElementById('output-canvas').height = video.videoHeight;
-                    State.gesturesEnabled = true; unlockUI("视觉引擎就绪！");
-                };
-                if (video.readyState >= 2) onReady(); else video.addEventListener("loadeddata", onReady);
-            } catch (err) { 
-                console.error("引擎受阻:", err); 
-                let reason = "下载失败";
-                if (!window.isSecureContext) reason = "需HTTPS环境";
-                else if (err.name === 'NotAllowedError') reason = "权限被拒";
-                unlockUI(`手势受限(${reason})，触控模式就绪。`); 
-            }
+            })();
         };
 
         const detectFeatures = (handResults) => {
@@ -1310,7 +1343,7 @@
                     for(let i=0; i<10; i++) lowSum += window.micDataArray[i]; 
                     let lowAvg = lowSum / 10;
                     
-                    if (lowAvg > 90) { 
+                    if (lowAvg > 75) { 
                         State.blowFrames++; 
                         if (State.blowFrames > 4 && performance.now() - lastGestureTime > 1500) { 
                             blowOutCandle(); 
@@ -1344,14 +1377,19 @@
                 const savedCardText = await DB.getSetting('cardText'); if(savedCardText) { State.cardTextData = savedCardText; document.getElementById('card-text-input').value = savedCardText; } 
             } catch(e) {} 
             ParticleSystem.init(); 
-            if(navigator.mediaDevices?.getUserMedia) initSensors(); 
             
-            // 延长超时判定时间至 8 秒，给与网络环境不佳时充足的加载机会
+            if(navigator.mediaDevices?.getUserMedia) {
+                initSensors(); 
+            } else {
+                unlockUI("设备不支持传感器，已开启触屏模式。");
+            }
+            
             setTimeout(() => {
-                if (!document.getElementById('action-container').classList.contains('hidden')) {
-                    unlockUI("加载超时或环境受限，已自动开启触屏模式。");
+                const actionContainer = document.getElementById('action-container');
+                if (actionContainer && actionContainer.classList.contains('hidden')) {
+                    unlockUI("网络或环境受限，已为您开启纯净触控模式。");
                 }
-            }, 8000);
+            }, 10000); 
             
             animate(); 
         })();
